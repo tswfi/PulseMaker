@@ -88,11 +88,13 @@ uint8_t viewstate; // hold the view information while doing edits
 // pulse2 the length of the second pulse in us
 // idle idling time between pulses in us
 // if continous mode is on pulse1 and idle are used
-int16_t pulse1, idle, pulse2;
+uint16_t pulse1, idle, pulse2;
 
 // when running the pulsing these hold the values for the pulse and are decremented
 // by the timer.
-int16_t pulse1_counter, idle_counter, pulse2_counter;
+uint16_t pulse1_counter, idle_counter, pulse2_counter;
+
+#define MIN_LENGTH 10
 
 // EEPROM locations for the values
 #define P1ADDR 0
@@ -124,7 +126,7 @@ void timerIsr()
 }
 
 // eeprom read write
-void EEPROMWriteInt16(int address, int16_t value)
+void EEPROMWriteInt16(int address, uint16_t value)
 {
     byte two = (value & 0xFF);
     byte one = ((value >> 8) & 0xFF);
@@ -133,10 +135,11 @@ void EEPROMWriteInt16(int address, int16_t value)
 }
 int16_t EEPROMReadInt16(long address)
 {
-    int16_t two = EEPROM.read(address);
-    int16_t one = EEPROM.read(address + 1);
+    uint16_t two = EEPROM.read(address);
+    uint16_t one = EEPROM.read(address + 1);
     return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
 }
+
 
 void draw_pulse_once(void)
 {
@@ -308,19 +311,19 @@ void setup()
     oldEncPos = -1;
 
     pulse1 = EEPROMReadInt16(P1ADDR);
-    if (pulse1 == -1)
+    if (pulse1 < MIN_LENGTH)
     {
         pulse1 = 300;
         EEPROMWriteInt16(P1ADDR, pulse1);
     }
     pulse2 = EEPROMReadInt16(P2ADDR);
-    if (pulse2 == -1)
+    if (pulse2 < MIN_LENGTH)
     {
         pulse2 = 400;
         EEPROMWriteInt16(P2ADDR, pulse2);
     }
     idle = EEPROMReadInt16(IDLEADDR);
-    if (idle == -1)
+    if (idle < MIN_LENGTH)
     {
         idle = 200;
         EEPROMWriteInt16(IDLEADDR, idle);
@@ -350,11 +353,11 @@ void handle_encoder_rotate(void)
     }
     encPos += encoder.getValue();
     // limits
-    if(encPos <= 10) {
+    if(encPos <= MIN_LENGTH) {
         encPos = 10;
     }
-    if(encPos == 0xFFFF) {
-        encPos = 0xFFFF;
+    if(encPos >= 65535) {
+        encPos = 65535;
     }
     if (encPos != oldEncPos)
     {
