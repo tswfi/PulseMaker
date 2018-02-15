@@ -24,6 +24,8 @@
 // On each mode the pulse(s) will be triggered by clicking the encoder once. For continous mode
 // clicking the encoder again will stop the pulsing
 //
+// extra footswitch can be attached to A3. it will only act as a trigger and cannot be used to go to
+// edit mode etc.
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -106,6 +108,7 @@ uint16_t pulse1_counter, idle_counter, pulse2_counter;
 #define P1ADDR 0
 #define P2ADDR 2
 #define IDLEADDR 4
+#define STATEADDR 6
 
 // are we running the pulsing right now
 bool btn_held_handled; // have we handled this btn_held?
@@ -446,8 +449,24 @@ void setup()
     }
 
     btn_held_handled = 0;
-    state = VIEW_ONCE;
-    viewstate = VIEW_ONCE;
+
+    // 1 == VIEW_ONCE, 2 == VIEW_TWICE 3 == VIEW_CONTINOUS
+    uint16_t savedstate = EEPROMReadInt16(STATEADDR);
+    // 0 is unknown, default to VIEW_ONCE
+    if(savedstate == 0) {
+        state = VIEW_ONCE;
+        EEPROMWriteInt16(STATEADDR, 1);
+    }
+    if(savedstate == 1) {
+        state = VIEW_ONCE;
+    }
+    if(savedstate == 2) {
+        state = VIEW_TWICE;
+    }
+    if(savedstate == 3) {
+        state = VIEW_CONTINOUS;
+    }
+    viewstate = state;
 
     pinMode(pinExtraSw, INPUT_PULLUP);
     pinMode(OUTPIN, OUTPUT);
@@ -522,18 +541,21 @@ void handle_encoder_button(void)
                 {
                     state = VIEW_TWICE;
                     viewstate = VIEW_TWICE;
+                    EEPROMWriteInt16(STATEADDR, 2);
                 }
                 // from twice to cont
                 else if (state == VIEW_TWICE)
                 {
                     state = VIEW_CONTINOUS;
                     viewstate = VIEW_CONTINOUS;
+                    EEPROMWriteInt16(STATEADDR, 3);
                 }
                 // from cont to once
                 else if (state == VIEW_CONTINOUS)
                 {
                     state = VIEW_ONCE;
                     viewstate = VIEW_ONCE;
+                    EEPROMWriteInt16(STATEADDR, 1);
                 }
                 // wait for the next time
                 btn_held_handled = 1;
