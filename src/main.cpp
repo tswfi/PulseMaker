@@ -94,7 +94,7 @@ uint16_t pulse1, idle, pulse2;
 // by the timer.
 uint16_t pulse1_counter, idle_counter, pulse2_counter;
 
-#define MIN_LENGTH 10
+#define MIN_LENGTH 1
 
 // EEPROM locations for the values
 #define P1ADDR 0
@@ -104,9 +104,109 @@ uint16_t pulse1_counter, idle_counter, pulse2_counter;
 // are we running the pulsing right now
 bool btn_held_handled; // have we handled this btn_held?
 
+
+bool pulsing(void)
+{
+    if (state == PULSE_ONE or state == PULSE_TWO or state == PULSE_IDLE)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+bool editing(void)
+{
+    if (state == EDIT_PULSE1 or state == EDIT_PULSE2 or state == EDIT_IDLE)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+
+// TODO: this might be too slow with the screen updates...
+// might want to move this into the interrupt just in case
+void handle_pulsing(void)
+{
+    // always default to not outputting
+    out = LOW;
+    // check if we are pulsing and what we should do in the pulse
+    if (pulsing())
+    {
+        // PULSE_ONE is going
+        if (state == PULSE_ONE)
+        {
+            // default to HIGH on output
+            out = HIGH;
+            // is the pulse over?
+            if (pulse1_counter >= pulse1)
+            {
+                // pulse has ended, where should we go
+                // either back to view_once or idle
+                if (viewstate == VIEW_ONCE)
+                {
+                    state = VIEW_ONCE;
+
+                    out = LOW;
+                }
+                else
+                {
+                    state = PULSE_IDLE;
+                }
+            }
+        }
+
+        // pulse idle is going
+        if (state == PULSE_IDLE)
+        {
+            // default to LOW output
+            out = LOW;
+            // are we over the idle time
+            if (idle_counter >= idle)
+            {
+                if (viewstate == VIEW_CONTINOUS)
+                {
+
+                    // back to PULSE_ONE and reset counters
+                    pulse1_counter = 0;
+                    pulse2_counter = 0;
+                    idle_counter = 0;
+                    state = PULSE_ONE;
+                }
+                else
+                {
+                    state = PULSE_TWO;
+                }
+            }
+        }
+
+        if (state == PULSE_TWO)
+        {
+            // default to output HIGH
+            out = HIGH;
+            if (pulse2_counter >= pulse2)
+            {
+                // always back to view twice from here
+                state = VIEW_TWICE;
+            }
+        }
+    }
+    // write out our pin state, TODO: would probably be better to
+    // only call this if the out output state really changed...
+    digitalWrite(OUTPIN, out);
+}
+
+
 // timer interrupt for encoder
 void timerIsr()
 {
+    handle_pulsing();
+
     // update pulse_counters if we are in that state
     if (state == PULSE_ONE)
     {
@@ -120,6 +220,7 @@ void timerIsr()
     {
         pulse2_counter++;
     }
+
 
     // update encoder
     encoder.service();
@@ -273,29 +374,6 @@ void draw(void)
     }
 }
 
-bool pulsing(void)
-{
-    if (state == PULSE_ONE or state == PULSE_TWO or state == PULSE_IDLE)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-bool editing(void)
-{
-    if (state == EDIT_PULSE1 or state == EDIT_PULSE2 or state == EDIT_IDLE)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
 void setup()
 {
     Serial.begin(9600);
@@ -313,19 +391,19 @@ void setup()
     pulse1 = EEPROMReadInt16(P1ADDR);
     if (pulse1 < MIN_LENGTH)
     {
-        pulse1 = 300;
+        pulse1 = 50;
         EEPROMWriteInt16(P1ADDR, pulse1);
     }
     pulse2 = EEPROMReadInt16(P2ADDR);
     if (pulse2 < MIN_LENGTH)
     {
-        pulse2 = 400;
+        pulse2 = 200;
         EEPROMWriteInt16(P2ADDR, pulse2);
     }
     idle = EEPROMReadInt16(IDLEADDR);
     if (idle < MIN_LENGTH)
     {
-        idle = 200;
+        idle = 50;
         EEPROMWriteInt16(IDLEADDR, idle);
     }
 
@@ -354,7 +432,7 @@ void handle_encoder_rotate(void)
     encPos += encoder.getValue();
     // limits
     if(encPos <= MIN_LENGTH) {
-        encPos = 10;
+        encPos = MIN_LENGTH;
     }
     if(encPos >= 65535) {
         encPos = 65535;
@@ -523,81 +601,9 @@ void handle_encoder_button(void)
     }
 }
 
-// TODO: this might be too slow with the screen updates...
-// might want to move this into the interrupt just in case
-void handle_pulsing(void)
-{
-    // always default to not outputting
-    out = LOW;
-    // check if we are pulsing and what we should do in the pulse
-    if (pulsing())
-    {
-        // PULSE_ONE is going
-        if (state == PULSE_ONE)
-        {
-            // default to HIGH on output
-            out = HIGH;
-            // is the pulse over?
-            if (pulse1_counter >= pulse1)
-            {
-                // pulse has ended, where should we go
-                // either back to view_once or idle
-                if (viewstate == VIEW_ONCE)
-                {
-                    state = VIEW_ONCE;
-
-                    out = LOW;
-                }
-                else
-                {
-                    state = PULSE_IDLE;
-                }
-            }
-        }
-
-        // pulse idle is going
-        if (state == PULSE_IDLE)
-        {
-            // default to LOW output
-            out = LOW;
-            // are we over the idle time
-            if (idle_counter >= idle)
-            {
-                if (viewstate == VIEW_CONTINOUS)
-                {
-
-                    // back to PULSE_ONE and reset counters
-                    pulse1_counter = 0;
-                    pulse2_counter = 0;
-                    idle_counter = 0;
-                    state = PULSE_ONE;
-                }
-                else
-                {
-                    state = PULSE_TWO;
-                }
-            }
-        }
-
-        if (state == PULSE_TWO)
-        {
-            // default to output HIGH
-            out = HIGH;
-            if (pulse2_counter >= pulse2)
-            {
-                // always back to view twice from here
-                state = VIEW_TWICE;
-            }
-        }
-    }
-    // write out our pin state, TODO: would probably be better to
-    // only call this if the out output state really changed...
-    digitalWrite(OUTPIN, out);
-}
 
 void loop()
 {
-    handle_pulsing();
 
     handle_encoder_rotate();
     handle_encoder_button();
