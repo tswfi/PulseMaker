@@ -44,10 +44,16 @@ uint8_t buttonState;
 U8GLIB_SSD1306_128X64 u8g(U8G_I2C_OPT_NO_ACK);
 
 // rotary encoder settings
-#define pinA A2
-#define pinB A1
-#define pinSw A0 //switch
-#define STEPS 2
+#define pinA A2       // encoder A
+#define pinB A1       // encoder B
+#define pinSw A0      // encoder switch (click on this will have a small delay)
+#define STEPS 2       // encoder step count
+#define pinExtraSw A3 // switch 2 (extra for foot switch etc)
+
+int extraButtonLastState = 1;            // tmp for debounce
+int extraButtonState = 0;                // state (for checking if we have released also)
+unsigned long extraButtonLastMillis = 0; // for debounce
+unsigned long extraButtonDebounce = 10;  // debounce time
 
 // our encoder
 ClickEncoder encoder(pinA, pinB, pinSw, STEPS);
@@ -104,7 +110,6 @@ uint16_t pulse1_counter, idle_counter, pulse2_counter;
 // are we running the pulsing right now
 bool btn_held_handled; // have we handled this btn_held?
 
-
 bool pulsing(void)
 {
     if (state == PULSE_ONE or state == PULSE_TWO or state == PULSE_IDLE)
@@ -128,9 +133,6 @@ bool editing(void)
     }
 }
 
-
-// TODO: this might be too slow with the screen updates...
-// might want to move this into the interrupt just in case
 void handle_pulsing(void)
 {
     // always default to not outputting
@@ -201,10 +203,48 @@ void handle_pulsing(void)
     digitalWrite(OUTPIN, out);
 }
 
+void handle_extra_button(void)
+{
+    // read and debounce the button
+    int val = digitalRead(pinExtraSw);
+    if (val != extraButtonLastState)
+    {
+        extraButtonLastMillis = millis();
+    }
+    // we got a stable button state
+    if ((millis() - extraButtonLastMillis) > extraButtonDebounce)
+    {
+        // if the state has changed
+        if (val != extraButtonState)
+        {
+            extraButtonState = val;
+            // if the button is down
+            if (extraButtonState == LOW)
+            {
+                if (not pulsing() and not editing())
+                {
+                    // start pulsing
+                    pulse1_counter = 0;
+                    pulse2_counter = 0;
+                    idle_counter = 0;
+                    state = PULSE_ONE;
+                }
+                // if we are pulsing in continuous mode
+                else if (pulsing() and viewstate == VIEW_CONTINOUS)
+                {
+                    // stop pulsing
+                    state = VIEW_CONTINOUS;
+                }
+            }
+        }
+    }
+    extraButtonLastState = val;
+}
 
-// timer interrupt for encoder
+// timer interrupt 1000hz
 void timerIsr()
 {
+
     handle_pulsing();
 
     // update pulse_counters if we are in that state
@@ -220,7 +260,6 @@ void timerIsr()
     {
         pulse2_counter++;
     }
-
 
     // update encoder
     encoder.service();
@@ -240,7 +279,6 @@ int16_t EEPROMReadInt16(long address)
     uint16_t one = EEPROM.read(address + 1);
     return ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
 }
-
 
 void draw_pulse_once(void)
 {
@@ -411,6 +449,7 @@ void setup()
     state = VIEW_ONCE;
     viewstate = VIEW_ONCE;
 
+    pinMode(pinExtraSw, INPUT_PULLUP);
     pinMode(OUTPIN, OUTPUT);
 }
 
@@ -431,10 +470,12 @@ void handle_encoder_rotate(void)
     }
     encPos += encoder.getValue();
     // limits
-    if(encPos <= MIN_LENGTH) {
+    if (encPos <= MIN_LENGTH)
+    {
         encPos = MIN_LENGTH;
     }
-    if(encPos >= 65535) {
+    if (encPos >= 65535)
+    {
         encPos = 65535;
     }
     if (encPos != oldEncPos)
@@ -601,12 +642,12 @@ void handle_encoder_button(void)
     }
 }
 
-
 void loop()
 {
 
     handle_encoder_rotate();
     handle_encoder_button();
+    handle_extra_button();
 
     // update our display
     u8g.firstPage();
