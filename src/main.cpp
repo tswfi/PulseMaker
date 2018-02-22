@@ -453,17 +453,21 @@ void setup()
     // 1 == VIEW_ONCE, 2 == VIEW_TWICE 3 == VIEW_CONTINOUS
     uint16_t savedstate = EEPROMReadInt16(STATEADDR);
     // 0 is unknown, default to VIEW_ONCE
-    if(savedstate == 0) {
+    if (savedstate == 0)
+    {
         state = VIEW_ONCE;
         EEPROMWriteInt16(STATEADDR, 1);
     }
-    if(savedstate == 1) {
+    if (savedstate == 1)
+    {
         state = VIEW_ONCE;
     }
-    if(savedstate == 2) {
+    if (savedstate == 2)
+    {
         state = VIEW_TWICE;
     }
-    if(savedstate == 3) {
+    if (savedstate == 3)
+    {
         state = VIEW_CONTINOUS;
     }
     viewstate = state;
