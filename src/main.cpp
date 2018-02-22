@@ -92,9 +92,9 @@ enum States
 enum States state;
 uint8_t viewstate; // hold the view information while doing edits
 
-// pulse1 the length of the first pulse in us
-// pulse2 the length of the second pulse in us
-// idle idling time between pulses in us
+// pulse1 the length of the first pulse in ms
+// pulse2 the length of the second pulse in ms
+// idle idling time between pulses in ms
 // if continous mode is on pulse1 and idle are used
 uint16_t pulse1, idle, pulse2;
 
