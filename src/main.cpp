@@ -19,7 +19,8 @@
 // To switch between modes hold down the encoder button to get to the next mode
 //
 // To edit the time values double click the encoder button to enter edit mode. Double clicking again will
-// edit the next value and go back to the pulse mode.
+// edit the next value and go back to the pulse mode. Clicking once during the edit mode will change to
+// different multiplier for the encoder (default 10 times and cycles between 1, 10, 100)
 //
 // On each mode the pulse(s) will be triggered by clicking the encoder once. For continous mode
 // clicking the encoder again will stop the pulsing
@@ -59,6 +60,9 @@ unsigned long extraButtonDebounce = 10;  // debounce time
 
 // our encoder
 ClickEncoder encoder(pinA, pinB, pinSw, STEPS);
+
+// multiplier for encoder to get to correct value faster
+int multiplier;
 
 // output pin
 #define OUTPIN 12
@@ -426,6 +430,9 @@ void setup()
     // much nicer to use :)
     encoder.setAccelerationEnabled(true);
 
+    // default to 10 multiplier on startup
+    multiplier = 10;
+
     // init
     oldEncPos = -1;
 
@@ -491,7 +498,7 @@ void handle_encoder_rotate(void)
     {
         encPos = idle;
     }
-    encPos += encoder.getValue();
+    encPos += encoder.getValue() * multiplier;
     // limits
     if (encPos <= MIN_LENGTH)
     {
@@ -575,6 +582,23 @@ void handle_encoder_button(void)
             // the first pulsing state is always PULSE_ONE, depending on the
             // viewstate it then either advances to PULSE_IDLE or PULSE_TWICE or
             // back to viewstate
+
+            // during edit switch between multipliers 1, 10, 100
+            if (not pulsing() and editing())
+            {
+                if (multiplier == 1)
+                {
+                    multiplier = 10;
+                }
+                else if (multiplier == 10)
+                {
+                    multiplier = 100;
+                }
+                else if (multiplier == 100)
+                {
+                    multiplier = 1;
+                }
+            }
 
             // if we are not in pulsing or editing start pulsing
             if (not pulsing() and not editing())
