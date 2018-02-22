@@ -66,6 +66,7 @@ int multiplier;
 
 // output pin
 #define OUTPIN 12
+#define LEDPIN 13
 // and its state
 bool out;
 
@@ -208,6 +209,8 @@ void handle_pulsing(void)
     // write out our pin state, TODO: would probably be better to
     // only call this if the out output state really changed...
     digitalWrite(OUTPIN, out);
+    digitalWrite(LEDPIN, out);
+
 }
 
 void handle_extra_button(void)
@@ -481,6 +484,7 @@ void setup()
 
     pinMode(pinExtraSw, INPUT_PULLUP);
     pinMode(OUTPIN, OUTPUT);
+    pinMode(LEDPIN, OUTPUT);
 }
 
 // handle encoder rotating
