@@ -61,7 +61,7 @@ unsigned long extraButtonDebounce = 10;  // debounce time
 ClickEncoder encoder(pinA, pinB, pinSw, STEPS);
 
 // output pin
-#define OUTPIN 13
+#define OUTPIN 12
 // and its state
 bool out;
 
